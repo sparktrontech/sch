@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart School Bell Panel</title>
+
+<style>
+body{
+font-family:Segoe UI;
+background:linear-gradient(rgba(255,255,255,0.95),rgba(255,255,255,0.95)),
+url("background.jpg");
+background-size:cover;
+background-attachment:fixed;
+margin:0;
+}
+
+header{
+background:#1e3d59;
+color:white;
+padding:15px 20px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+flex-wrap:wrap;
+}
+
+.logoSection{
+display:flex;
+align-items:center;
+}
+
+.logoSection img{
+height:50px;
+margin-right:15px;
+}
+
+.schoolName{
+font-size:22px;
+font-weight:bold;
+cursor:pointer;
+}
+
+.clockBox{
+text-align:right;
+}
+
+#clock{
+font-size:22px;
+font-weight:bold;
+}
+
+#date{
+font-size:14px;
+}
+
+.container{
+width:95%;
+margin:auto;
+margin-top:20px;
+}
+
+.card{
+background:white;
+padding:20px;
+border-radius:10px;
+box-shadow:0 4px 12px rgba(0,0,0,0.1);
+margin-bottom:20px;
+}
+
+input,select{
+padding:8px;
+margin:5px;
+border-radius:6px;
+border:1px solid #ccc;
+}
+
+button{
+padding:8px 15px;
+border:none;
+border-radius:6px;
+cursor:pointer;
+margin:3px;
+}
+
+.addBtn{ background:#27ae60; color:white; }
+.deleteBtn{ background:#e74c3c; color:white; }
+.editBtn{ background:#f39c12; color:white; }
+.exportBtn{ background:#2980b9; color:white; }
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:10px;
+}
+
+th,td{
+border:1px solid #ccc;
+padding:8px;
+text-align:center;
+}
+
+.hidden{ display:none; }
+
+footer{
+position:fixed;
+bottom:10px;
+right:10px;
+background:#1e3d59;
+color:white;
+padding:10px 15px;
+border-radius:8px;
+font-size:13px;
+box-shadow:0 3px 8px rgba(0,0,0,0.2);
+}
+
+@media(max-width:600px){
+input,select{ width:100%; }
+header{ flex-direction:column; align-items:flex-start; }
+.clockBox{ text-align:left; margin-top:10px; }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+
+<div class="logoSection">
+<img src="logo.png">
+<div class="schoolName" onclick="editSchoolName()" id="schoolTitle">
+Your School Name
+</div>
+</div>
+
+<div class="clockBox">
+<div id="clock">00:00:00</div>
+<div id="date">Loading date...</div>
+</div>
+
+</header>
+
+<div class="container">
+
+<div class="card" id="loginBox">
+<h3>Admin Login</h3>
+<input type="text" id="username" placeholder="Username"><br>
+<input type="password" id="password" placeholder="Password"><br>
+<button onclick="login()">Login</button>
+</div>
+
+<div class="card hidden" id="dashboard">
+
+<h3>Add Bell Schedule</h3>
+
+<select id="day">
+<option>Monday</option>
+<option>Tuesday</option>
+<option>Wednesday</option>
+<option>Thursday</option>
+<option>Friday</option>
+<option>Saturday</option>
+<option>Sunday</option>
+</select>
+
+<input type="number" id="hour" min="0" max="23" placeholder="Hour (0-23)">
+<input type="number" id="minute" min="0" max="59" placeholder="Minute (0-59)">
+<input type="number" id="duration" placeholder="Duration (sec)">
+
+<label>
+<input type="checkbox" id="repeatNext"> Repeat Next Day
+</label>
+
+<br>
+<button class="addBtn" onclick="addSchedule()">Add</button>
+<button class="exportBtn" onclick="exportJSON()">Export JSON</button>
+
+<h3>Weekly Time Table</h3>
+
+<table id="table">
+<tr>
+<th>Day</th>
+<th>Time</th>
+<th>Duration</th>
+<th>Action</th>
+</tr>
+</table>
+
+</div>
+</div>
+
+<footer>
+Developed by Vishwajeet Jadhav <br>
+Smart IoT Bell System <br>
+📧jadhavvishwajeet94@gmail.com
+</footer>
+
+<script>
+
+let schedules=[];
+const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+
+/* CLOCK SYSTEM */
+function updateClock(){
+let now=new Date();
+let h=now.getHours().toString().padStart(2,'0');
+let m=now.getMinutes().toString().padStart(2,'0');
+let s=now.getSeconds().toString().padStart(2,'0');
+
+document.getElementById("clock").innerHTML=h+":"+m+":"+s;
+
+let options={weekday:'long', year:'numeric', month:'long', day:'numeric'};
+document.getElementById("date").innerHTML=now.toLocaleDateString(undefined,options);
+}
+setInterval(updateClock,1000);
+updateClock();
+
+/* SCHOOL NAME EDIT */
+function editSchoolName(){
+let newName=prompt("Enter School Name");
+if(newName){
+document.getElementById("schoolTitle").innerHTML=newName;
+localStorage.setItem("schoolName",newName);
+}
+}
+
+window.onload=function(){
+let savedName=localStorage.getItem("schoolName");
+if(savedName){
+document.getElementById("schoolTitle").innerHTML=savedName;
+}
+};
+
+/* LOGIN */
+function login(){
+let user=document.getElementById("username").value;
+let pass=document.getElementById("password").value;
+
+if(user==="S.R.Jadhav" && pass==="mhm123"){
+document.getElementById("loginBox").classList.add("hidden");
+document.getElementById("dashboard").classList.remove("hidden");
+loadFromStorage();
+}
+else{
+alert("Wrong login");
+}
+}
+
+/* SCHEDULE */
+function addSchedule(){
+let day=document.getElementById("day").value;
+let hour=document.getElementById("hour").value;
+let minute=document.getElementById("minute").value;
+let duration=document.getElementById("duration").value;
+let repeat=document.getElementById("repeatNext").checked;
+
+if(hour===""||minute===""||duration===""){
+alert("Fill all fields");
+return;
+}
+
+let entry={day:day,time:formatTime(hour,minute),duration:duration};
+schedules.push(entry);
+
+if(repeat){
+let index=days.indexOf(day);
+if(index<6){
+let nextEntry={day:days[index+1],time:formatTime(hour,minute),duration:duration};
+schedules.push(nextEntry);
+}
+}
+
+saveToStorage();
+renderTable();
+}
+
+function renderTable(){
+let table=document.getElementById("table");
+table.innerHTML="<tr><th>Day</th><th>Time</th><th>Duration</th><th>Action</th></tr>";
+
+schedules.forEach((item,index)=>{
+let row=table.insertRow(-1);
+row.insertCell(0).innerHTML=item.day;
+row.insertCell(1).innerHTML=item.time;
+row.insertCell(2).innerHTML=item.duration+" sec";
+row.insertCell(3).innerHTML=
+"<button class='editBtn' onclick='editRow("+index+")'>Edit</button>"+
+"<button class='deleteBtn' onclick='deleteRow("+index+")'>Delete</button>";
+});
+}
+
+function deleteRow(index){
+schedules.splice(index,1);
+saveToStorage();
+renderTable();
+}
+
+function editRow(index){
+let item=schedules[index];
+let newDuration=prompt("Edit Duration (sec)",item.duration);
+if(newDuration!=null){
+item.duration=newDuration;
+saveToStorage();
+renderTable();
+}
+}
+
+function formatTime(h,m){
+return h.toString().padStart(2,'0')+":"+m.toString().padStart(2,'0');
+}
+
+function saveToStorage(){
+localStorage.setItem("schoolBellData",JSON.stringify(schedules));
+}
+
+function loadFromStorage(){
+let data=localStorage.getItem("schoolBellData");
+if(data){
+schedules=JSON.parse(data);
+renderTable();
+}
+}
+
+function exportJSON(){
+let dataStr="data:text/json;charset=utf-8,"+encodeURIComponent(JSON.stringify(schedules,null,2));
+let dl=document.createElement("a");
+dl.setAttribute("href",dataStr);
+dl.setAttribute("download","school_bell_schedule.json");
+dl.click();
+}
+
+</script>
+
+</body>
+</html>
