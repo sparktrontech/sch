@@ -4,13 +4,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Smart School Bell Panel</title>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
 <style>
 body{
 font-family:Segoe UI;
-background:linear-gradient(rgba(255,255,255,0.95),rgba(255,255,255,0.95)),
-url("background.jpg");
-background-size:cover;
-background-attachment:fixed;
+background:#f4f6f9;
 margin:0;
 }
 
@@ -22,16 +22,6 @@ display:flex;
 justify-content:space-between;
 align-items:center;
 flex-wrap:wrap;
-}
-
-.logoSection{
-display:flex;
-align-items:center;
-}
-
-.logoSection img{
-height:100px;
-margin-right:15px;
 }
 
 .schoolName{
@@ -49,9 +39,16 @@ font-size:22px;
 font-weight:bold;
 }
 
-#date{
-font-size:14px;
+.status{
+padding:5px 10px;
+border-radius:6px;
+font-size:13px;
+margin-top:5px;
+display:inline-block;
 }
+
+.online{ background:#27ae60; }
+.offline{ background:#e74c3c; }
 
 .container{
 width:95%;
@@ -84,7 +81,6 @@ margin:3px;
 
 .addBtn{ background:#27ae60; color:white; }
 .deleteBtn{ background:#e74c3c; color:white; }
-.editBtn{ background:#f39c12; color:white; }
 .exportBtn{ background:#2980b9; color:white; }
 
 table{
@@ -100,43 +96,21 @@ text-align:center;
 }
 
 .hidden{ display:none; }
-
-footer{
-position:fixed;
-bottom:10px;
-right:10px;
-background:#1e3d59;
-color:white;
-padding:10px 15px;
-border-radius:8px;
-font-size:13px;
-box-shadow:0 3px 8px rgba(0,0,0,0.2);
-}
-
-@media(max-width:600px){
-input,select{ width:100%; }
-header{ flex-direction:column; align-items:flex-start; }
-.clockBox{ text-align:left; margin-top:10px; }
-}
 </style>
 </head>
 
 <body>
 
 <header>
-
-<div class="logoSection">
-<img src="logo.png">
 <div class="schoolName" onclick="editSchoolName()" id="schoolTitle">
 Your School Name
-</div>
 </div>
 
 <div class="clockBox">
 <div id="clock">00:00:00</div>
-<div id="date">Loading date...</div>
+<div id="date"></div>
+<div id="espStatus" class="status offline">ESP Offline</div>
 </div>
-
 </header>
 
 <div class="container">
@@ -188,68 +162,74 @@ Your School Name
 </div>
 </div>
 
-<footer>
-Developed by Vishwajeet Jadhav <br>
-Smart IoT Bell System <br>
-📧jadhavvishwajeet94@gmail.com
-</footer>
-
 <script>
 
-let schedules=[];
-const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+/* 🔥 FIREBASE CONFIG */
+const firebaseConfig = {
+  apiKey: "AIzaSyCkl4p4SnS84EzLIyIjTk5euJH9lx9FVSI",
+  authDomain: "sparktrontechbell.firebaseapp.com",
+  databaseURL: "https://sparktrontechbell-default-rtdb.firebaseio.com",
+  projectId: "sparktrontechbell",
+  storageBucket: "sparktrontechbell.firebasestorage.app",
+  messagingSenderId: "785911164477",
+  appId: "1:785911164477:web:d94a5d8f9667eaf5878454"
+};
 
-/* CLOCK SYSTEM */
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
+/* CLOCK */
 function updateClock(){
 let now=new Date();
 let h=now.getHours().toString().padStart(2,'0');
 let m=now.getMinutes().toString().padStart(2,'0');
 let s=now.getSeconds().toString().padStart(2,'0');
-
 document.getElementById("clock").innerHTML=h+":"+m+":"+s;
 
 let options={weekday:'long', year:'numeric', month:'long', day:'numeric'};
 document.getElementById("date").innerHTML=now.toLocaleDateString(undefined,options);
 }
 setInterval(updateClock,1000);
-updateClock();
 
-/* SCHOOL NAME EDIT */
-function editSchoolName(){
-let newName=prompt("Enter School Name");
-if(newName){
-document.getElementById("schoolTitle").innerHTML=newName;
-localStorage.setItem("schoolName",newName);
+/* ESP STATUS LISTENER */
+database.ref("espStatus").on("value", snapshot=>{
+if(snapshot.val()==="online"){
+document.getElementById("espStatus").innerHTML="ESP Online";
+document.getElementById("espStatus").className="status online";
+}else{
+document.getElementById("espStatus").innerHTML="ESP Offline";
+document.getElementById("espStatus").className="status offline";
 }
-}
-
-window.onload=function(){
-let savedName=localStorage.getItem("schoolName");
-if(savedName){
-document.getElementById("schoolTitle").innerHTML=savedName;
-}
-};
+});
 
 /* LOGIN */
 function login(){
 let user=document.getElementById("username").value;
 let pass=document.getElementById("password").value;
 
-if(user==="S.R.Jadhav" && pass==="mhm123"){
+if(user==="admin" && pass==="1234"){
 document.getElementById("loginBox").classList.add("hidden");
 document.getElementById("dashboard").classList.remove("hidden");
-loadFromStorage();
-}
-else{
+loadFromFirebase();
+}else{
 alert("Wrong login");
 }
 }
 
-/* SCHEDULE */
+/* SCHOOL NAME */
+function editSchoolName(){
+let newName=prompt("Enter School Name");
+if(newName){
+document.getElementById("schoolTitle").innerHTML=newName;
+}
+}
+
+let schedules=[];
+
 function addSchedule(){
 let day=document.getElementById("day").value;
-let hour=document.getElementById("hour").value;
-let minute=document.getElementById("minute").value;
+let hour=document.getElementById("hour").value.padStart(2,'0');
+let minute=document.getElementById("minute").value.padStart(2,'0');
 let duration=document.getElementById("duration").value;
 let repeat=document.getElementById("repeatNext").checked;
 
@@ -258,18 +238,18 @@ alert("Fill all fields");
 return;
 }
 
-let entry={day:day,time:formatTime(hour,minute),duration:duration};
+let entry={day:day,time:hour+":"+minute,duration:duration};
 schedules.push(entry);
 
 if(repeat){
+let days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 let index=days.indexOf(day);
 if(index<6){
-let nextEntry={day:days[index+1],time:formatTime(hour,minute),duration:duration};
-schedules.push(nextEntry);
+schedules.push({day:days[index+1],time:hour+":"+minute,duration:duration});
 }
 }
 
-saveToStorage();
+saveToFirebase();
 renderTable();
 }
 
@@ -283,41 +263,27 @@ row.insertCell(0).innerHTML=item.day;
 row.insertCell(1).innerHTML=item.time;
 row.insertCell(2).innerHTML=item.duration+" sec";
 row.insertCell(3).innerHTML=
-"<button class='editBtn' onclick='editRow("+index+")'>Edit</button>"+
 "<button class='deleteBtn' onclick='deleteRow("+index+")'>Delete</button>";
 });
 }
 
 function deleteRow(index){
 schedules.splice(index,1);
-saveToStorage();
+saveToFirebase();
 renderTable();
 }
 
-function editRow(index){
-let item=schedules[index];
-let newDuration=prompt("Edit Duration (sec)",item.duration);
-if(newDuration!=null){
-item.duration=newDuration;
-saveToStorage();
+function saveToFirebase(){
+database.ref("timetable").set(schedules);
+}
+
+function loadFromFirebase(){
+database.ref("timetable").on("value",snapshot=>{
+if(snapshot.exists()){
+schedules=snapshot.val();
 renderTable();
 }
-}
-
-function formatTime(h,m){
-return h.toString().padStart(2,'0')+":"+m.toString().padStart(2,'0');
-}
-
-function saveToStorage(){
-localStorage.setItem("schoolBellData",JSON.stringify(schedules));
-}
-
-function loadFromStorage(){
-let data=localStorage.getItem("schoolBellData");
-if(data){
-schedules=JSON.parse(data);
-renderTable();
-}
+});
 }
 
 function exportJSON(){
@@ -332,4 +298,3 @@ dl.click();
 
 </body>
 </html>
-
