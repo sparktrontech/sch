@@ -4,6 +4,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Smart School Bell Panel</title>
 
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 
@@ -97,7 +98,7 @@ text-align:center;
 
 .hidden{ display:none; }
 
-/* Floating Footer (Corner Style) */
+/* Floating Footer */
 footer{
 position:fixed;
 bottom:15px;
@@ -154,10 +155,6 @@ Your School Name
 <input type="number" id="minute" min="0" max="59" placeholder="Minute (0-59)">
 <input type="number" id="duration" placeholder="Duration (sec)">
 
-<label>
-<input type="checkbox" id="repeatNext"> Repeat Next Day
-</label>
-
 <br>
 <button class="addBtn" onclick="addSchedule()">Add</button>
 <button class="exportBtn" onclick="exportJSON()">Export JSON</button>
@@ -178,7 +175,30 @@ Your School Name
 
 <script>
 
-/* FIREBASE CONFIG */
+/* ---------------- CLOCK (100% WORKING) ---------------- */
+document.addEventListener("DOMContentLoaded", function(){
+
+function updateClock(){
+    const now = new Date();
+
+    const h = String(now.getHours()).padStart(2,'0');
+    const m = String(now.getMinutes()).padStart(2,'0');
+    const s = String(now.getSeconds()).padStart(2,'0');
+
+    document.getElementById("clock").innerHTML = h + ":" + m + ":" + s;
+
+    const options = { weekday:'long', year:'numeric', month:'long', day:'numeric'};
+    document.getElementById("date").innerHTML =
+        now.toLocaleDateString(undefined, options);
+}
+
+updateClock();
+setInterval(updateClock,1000);
+
+});
+
+
+/* ---------------- FIREBASE CONFIG ---------------- */
 const firebaseConfig = {
   apiKey: "YOUR_API_KEY",
   authDomain: "YOUR_AUTH_DOMAIN",
@@ -189,20 +209,6 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
-/* CLOCK (Fixed & Stable) */
-function updateClock(){
-    const now = new Date();
-    const h = String(now.getHours()).padStart(2,'0');
-    const m = String(now.getMinutes()).padStart(2,'0');
-    const s = String(now.getSeconds()).padStart(2,'0');
-
-    document.getElementById("clock").innerHTML = h + ":" + m + ":" + s;
-
-    const options = { weekday:'long', year:'numeric', month:'long', day:'numeric'};
-    document.getElementById("date").innerHTML = now.toLocaleDateString(undefined, options);
-}
-updateClock();
-setInterval(updateClock,1000);
 
 /* ESP STATUS */
 database.ref("espStatus").on("value", snapshot=>{
@@ -214,6 +220,7 @@ document.getElementById("espStatus").innerHTML="ESP Offline";
 document.getElementById("espStatus").className="status offline";
 }
 });
+
 
 /* LOGIN */
 function login(){
@@ -297,7 +304,8 @@ renderTable();
 }
 
 function exportJSON(){
-let dataStr="data:text/json;charset=utf-8,"+encodeURIComponent(JSON.stringify(schedules,null,2));
+let dataStr="data:text/json;charset=utf-8,"+
+encodeURIComponent(JSON.stringify(schedules,null,2));
 let dl=document.createElement("a");
 dl.setAttribute("href",dataStr);
 dl.setAttribute("download","school_bell_schedule.json");
