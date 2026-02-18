@@ -12,7 +12,6 @@ body{
 font-family:Segoe UI;
 background:#f4f6f9;
 margin:0;
-padding-bottom:100px;
 }
 
 header{
@@ -98,16 +97,18 @@ text-align:center;
 
 .hidden{ display:none; }
 
-/* Footer */
+/* Floating Footer (Corner Style) */
 footer{
+position:fixed;
+bottom:15px;
+right:20px;
 background:#1e3d59;
 color:white;
-text-align:center;
-padding:15px;
-font-size:14px;
-position:fixed;
-bottom:0;
-width:100%;
+padding:12px 15px;
+border-radius:10px;
+font-size:13px;
+text-align:right;
+box-shadow:0 4px 12px rgba(0,0,0,0.2);
 }
 </style>
 </head>
@@ -182,23 +183,25 @@ const firebaseConfig = {
   apiKey: "YOUR_API_KEY",
   authDomain: "YOUR_AUTH_DOMAIN",
   databaseURL: "YOUR_DATABASE_URL",
-  projectId: "YOUR_PROJECT_ID",
+  projectId: "YOUR_PROJECT_ID"
 };
 
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
-/* CLOCK */
+/* CLOCK (Fixed & Stable) */
 function updateClock(){
-let now=new Date();
-let h=now.getHours().toString().padStart(2,'0');
-let m=now.getMinutes().toString().padStart(2,'0');
-let s=now.getSeconds().toString().padStart(2,'0');
-document.getElementById("clock").innerHTML=h+":"+m+":"+s;
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2,'0');
+    const m = String(now.getMinutes()).padStart(2,'0');
+    const s = String(now.getSeconds()).padStart(2,'0');
 
-let options={weekday:'long', year:'numeric', month:'long', day:'numeric'};
-document.getElementById("date").innerHTML=now.toLocaleDateString(undefined,options);
+    document.getElementById("clock").innerHTML = h + ":" + m + ":" + s;
+
+    const options = { weekday:'long', year:'numeric', month:'long', day:'numeric'};
+    document.getElementById("date").innerHTML = now.toLocaleDateString(undefined, options);
 }
+updateClock();
 setInterval(updateClock,1000);
 
 /* ESP STATUS */
@@ -226,7 +229,6 @@ alert("Wrong login");
 }
 }
 
-/* SCHOOL NAME */
 function editSchoolName(){
 let newName=prompt("Enter School Name");
 if(newName){
@@ -241,49 +243,24 @@ let day=document.getElementById("day").value;
 let hour=document.getElementById("hour").value;
 let minute=document.getElementById("minute").value;
 let duration=document.getElementById("duration").value;
-let repeat=document.getElementById("repeatNext").checked;
 
-if(hour==="" || minute==="" || duration===""){
+if(hour===""||minute===""||duration===""){
 alert("Fill all fields");
 return;
 }
 
-hour=hour.toString().padStart(2,'0');
-minute=minute.toString().padStart(2,'0');
+hour=hour.padStart(2,'0');
+minute=minute.padStart(2,'0');
 
-let alreadyExists = schedules.some(item => 
-item.day === day && item.time === hour+":"+minute
-);
-
-if(alreadyExists){
+let exists=schedules.some(item=>item.day===day && item.time===hour+":"+minute);
+if(exists){
 alert("Time already exists!");
 return;
 }
 
 schedules.push({day:day,time:hour+":"+minute,duration:duration});
-
-if(repeat){
-let days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
-let index=days.indexOf(day);
-if(index<6){
-schedules.push({day:days[index+1],time:hour+":"+minute,duration:duration});
-}
-}
-
-schedules.sort((a,b)=>{
-if(a.day===b.day){
-return a.time.localeCompare(b.time);
-}
-return a.day.localeCompare(b.day);
-});
-
 saveToFirebase();
 renderTable();
-
-document.getElementById("hour").value="";
-document.getElementById("minute").value="";
-document.getElementById("duration").value="";
-document.getElementById("repeatNext").checked=false;
 }
 
 function renderTable(){
@@ -337,3 +314,7 @@ Smart IoT Bell System <br>
 
 </body>
 </html>
+
+</body>
+</html>
+
