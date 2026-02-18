@@ -4,25 +4,36 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Smart School Bell Panel</title>
 
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-
 <style>
 body{
 font-family:Segoe UI;
-background:#f4f6f9;
 margin:0;
+background:
+linear-gradient(rgba(0,0,0,0.6),rgba(0,0,0,0.6)),
+url("background.jpg");
+background-size:cover;
+background-attachment:fixed;
+color:white;
 }
 
+/* HEADER */
 header{
-background:#1e3d59;
-color:white;
+background:rgba(0,0,0,0.7);
 padding:15px 20px;
 display:flex;
 justify-content:space-between;
 align-items:center;
 flex-wrap:wrap;
+}
+
+.logoSection{
+display:flex;
+align-items:center;
+}
+
+.logoSection img{
+height:70px;
+margin-right:15px;
 }
 
 .schoolName{
@@ -36,21 +47,26 @@ text-align:right;
 }
 
 #clock{
-font-size:22px;
+font-size:26px;
 font-weight:bold;
 }
 
-.status{
-padding:5px 10px;
-border-radius:6px;
-font-size:13px;
-margin-top:5px;
-display:inline-block;
+#date{
+font-size:14px;
 }
 
-.online{ background:#27ae60; }
-.offline{ background:#e74c3c; }
+/* ESP STATUS */
+#espStatus{
+position:fixed;
+top:10px;
+right:10px;
+padding:8px 15px;
+border-radius:20px;
+font-weight:bold;
+background:gray;
+}
 
+/* CONTAINER */
 .container{
 width:95%;
 margin:auto;
@@ -58,10 +74,11 @@ margin-top:20px;
 }
 
 .card{
-background:white;
+background:rgba(255,255,255,0.95);
+color:black;
 padding:20px;
 border-radius:10px;
-box-shadow:0 4px 12px rgba(0,0,0,0.1);
+box-shadow:0 4px 12px rgba(0,0,0,0.4);
 margin-bottom:20px;
 }
 
@@ -98,17 +115,232 @@ text-align:center;
 
 .hidden{ display:none; }
 
-/* Floating Footer */
 footer{
 position:fixed;
-bottom:15px;
-right:20px;
+bottom:10px;
+right:10px;
 background:#1e3d59;
 color:white;
-padding:12px 15px;
-border-radius:10px;
+padding:10px 15px;
+border-radius:8px;
 font-size:13px;
-text-align:right;
+box-shadow:0 3px 8px rgba(0,0,0,0.5);
+}
+
+@media(max-width:600px){
+input,select{ width:100%; }
+header{ flex-direction:column; align-items:flex-start; }
+.clockBox{ text-align:left; margin-top:10px; }
+}
+</style>
+</head>
+
+<body>
+
+<div id="espStatus">Checking ESP...</div>
+
+<header>
+<div class="logoSection">
+<img src="logo.png">
+<div class="schoolName" onclick="editSchoolName()" id="schoolTitle">
+Your School Name
+</div>
+</div>
+
+<div class="clockBox">
+<div id="clock">00:00:00</div>
+<div id="date">Loading...</div>
+</div>
+</header>
+
+<div class="container">
+
+<div class="card" id="loginBox">
+<h3>Admin Login</h3>
+<input type="text" id="username" placeholder="Username"><br>
+<input type="password" id="password" placeholder="Password"><br>
+<button onclick="login()">Login</button>
+</div>
+
+<div class="card hidden" id="dashboard">
+
+<h3>Add Bell Schedule</h3>
+
+<select id="day">
+<option>Monday</option>
+<option>Tuesday</option>
+<option>Wednesday</option>
+<option>Thursday</option>
+<option>Friday</option>
+<option>Saturday</option>
+<option>Sunday</option>
+</select>
+
+<input type="number" id="hour" min="0" max="23" placeholder="Hour (0-23)">
+<input type="number" id="minute" min="0" max="59" placeholder="Minute (0-59)">
+<input type="number" id="duration" placeholder="Duration (sec)">
+
+<label>
+<input type="checkbox" id="repeatNext"> Repeat Next Day
+</label>
+
+<label>
+<input type="checkbox" id="repeatWeek"> Repeat Full Week
+</label>
+
+<br>
+<button class="addBtn" onclick="addSchedule()">Add</button>
+<button class="exportBtn" onclick="exportJSON()">Export JSON</button>
+
+<h3>Weekly Time Table</h3>
+
+<table id="table">
+<tr>
+<th>Day</th>
+<th>Time</th>
+<th>Duration</th>
+<th>Action</th>
+</tr>
+</table>
+
+</div>
+</div>
+
+<footer>
+Developed by Vishwajeet Jadhav <br>
+Smart IoT Bell System <br>
+📧jadhavvishwajeet94@gmail.com
+</footer>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<script>
+
+/* 🔥 REPLACE WITH YOUR FIREBASE CONFIG */
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "YOUR_DATABASE_URL",
+  projectId: "YOUR_PROJECT_ID",
+};
+
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
+/* ESP STATUS CHECK */
+database.ref("/SchoolBell/espStatus").on("value", (snapshot) => {
+  const lastUpdate = snapshot.val();
+  if (!lastUpdate) return;
+
+  const now = Date.now();
+  const difference = now - lastUpdate;
+
+  if (difference < 15000) {
+    document.getElementById("espStatus").style.background="green";
+    document.getElementById("espStatus").innerHTML="🟢 ESP32 ONLINE";
+  } else {
+    document.getElementById("espStatus").style.background="red";
+    document.getElementById("espStatus").innerHTML="🔴 ESP32 OFFLINE";
+  }
+});
+
+/* CLOCK */
+function updateClock(){
+let now=new Date();
+let h=now.getHours().toString().padStart(2,'0');
+let m=now.getMinutes().toString().padStart(2,'0');
+let s=now.getSeconds().toString().padStart(2,'0');
+document.getElementById("clock").innerHTML=h+":"+m+":"+s;
+
+let options={weekday:'long', year:'numeric', month:'long', day:'numeric'};
+document.getElementById("date").innerHTML=now.toLocaleDateString(undefined,options);
+}
+setInterval(updateClock,1000);
+updateClock();
+
+/* LOGIN */
+function login(){
+let user=document.getElementById("username").value;
+let pass=document.getElementById("password").value;
+if(user==="admin" && pass==="12345"){
+document.getElementById("loginBox").classList.add("hidden");
+document.getElementById("dashboard").classList.remove("hidden");
+}
+else{
+alert("Wrong login");
+}
+}
+
+/* SCHEDULE (Local Storage Only UI) */
+let schedules=[];
+const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+
+function addSchedule(){
+let day=document.getElementById("day").value;
+let hour=document.getElementById("hour").value;
+let minute=document.getElementById("minute").value;
+let duration=document.getElementById("duration").value;
+let repeat=document.getElementById("repeatNext").checked;
+let repeatWeek=document.getElementById("repeatWeek").checked;
+
+if(hour===""||minute===""||duration===""){
+alert("Fill all fields");
+return;
+}
+
+if(repeatWeek){
+days.forEach(d=>{
+schedules.push({day:d,time:formatTime(hour,minute),duration:duration});
+});
+}else{
+schedules.push({day:day,time:formatTime(hour,minute),duration:duration});
+if(repeat){
+let index=days.indexOf(day);
+if(index<6){
+schedules.push({day:days[index+1],time:formatTime(hour,minute),duration:duration});
+}
+}
+}
+
+renderTable();
+}
+
+function renderTable(){
+let table=document.getElementById("table");
+table.innerHTML="<tr><th>Day</th><th>Time</th><th>Duration</th><th>Action</th></tr>";
+schedules.forEach((item,index)=>{
+let row=table.insertRow(-1);
+row.insertCell(0).innerHTML=item.day;
+row.insertCell(1).innerHTML=item.time;
+row.insertCell(2).innerHTML=item.duration+" sec";
+row.insertCell(3).innerHTML=
+"<button class='deleteBtn' onclick='deleteRow("+index+")'>Delete</button>";
+});
+}
+
+function deleteRow(index){
+schedules.splice(index,1);
+renderTable();
+}
+
+function formatTime(h,m){
+return h.toString().padStart(2,'0')+":"+m.toString().padStart(2,'0');
+}
+
+function exportJSON(){
+let dataStr="data:text/json;charset=utf-8,"+encodeURIComponent(JSON.stringify(schedules,null,2));
+let dl=document.createElement("a");
+dl.setAttribute("href",dataStr);
+dl.setAttribute("download","school_bell_schedule.json");
+dl.click();
+}
+
+</script>
+
+</body>
+</html>text-align:right;
 box-shadow:0 4px 12px rgba(0,0,0,0.2);
 }
 </style>
@@ -322,3 +554,4 @@ Smart IoT Bell System <br>
 
 </body>
 </html>
+
