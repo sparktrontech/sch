@@ -331,32 +331,158 @@ return h.toString().padStart(2,'0')+":"+m.toString().padStart(2,'0');
 
 function exportJSON(){
 let dataStr="data:text/json;charset=utf-8,"+encodeURIComponent(JSON.stringify(schedules,null,2));
-let dl=document.createElement("a");
-dl.setAttribute("href",dataStr);
-dl.setAttribute("download","school_bell_schedule.json");
-dl.click();
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart School Bell Panel</title>
+
+<style>
+body{
+font-family:Segoe UI;
+margin:0;
+background:
+linear-gradient(rgba(0,0,0,0.6),rgba(0,0,0,0.6)),
+url("background.jpg");
+background-size:cover;
+background-attachment:fixed;
+color:white;
 }
 
-</script>
+/* HEADER */
+header{
+background:rgba(0,0,0,0.7);
+padding:15px 20px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+flex-wrap:wrap;
+}
 
-</body>
-</html>text-align:right;
-box-shadow:0 4px 12px rgba(0,0,0,0.2);
+.logoSection{
+display:flex;
+align-items:center;
+}
+
+.logoSection img{
+height:70px;
+margin-right:15px;
+}
+
+.schoolName{
+font-size:22px;
+font-weight:bold;
+cursor:pointer;
+}
+
+.clockBox{
+text-align:right;
+}
+
+#clock{
+font-size:26px;
+font-weight:bold;
+}
+
+#date{
+font-size:14px;
+}
+
+/* ESP STATUS */
+#espStatus{
+position:fixed;
+top:10px;
+right:10px;
+padding:8px 15px;
+border-radius:20px;
+font-weight:bold;
+background:gray;
+}
+
+/* CONTAINER */
+.container{
+width:95%;
+margin:auto;
+margin-top:20px;
+}
+
+.card{
+background:rgba(255,255,255,0.95);
+color:black;
+padding:20px;
+border-radius:10px;
+box-shadow:0 4px 12px rgba(0,0,0,0.4);
+margin-bottom:20px;
+}
+
+input,select{
+padding:8px;
+margin:5px;
+border-radius:6px;
+border:1px solid #ccc;
+}
+
+button{
+padding:8px 15px;
+border:none;
+border-radius:6px;
+cursor:pointer;
+margin:3px;
+}
+
+.addBtn{ background:#27ae60; color:white; }
+.deleteBtn{ background:#e74c3c; color:white; }
+.exportBtn{ background:#2980b9; color:white; }
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:10px;
+}
+
+th,td{
+border:1px solid #ccc;
+padding:8px;
+text-align:center;
+}
+
+.hidden{ display:none; }
+
+footer{
+position:fixed;
+bottom:10px;
+right:10px;
+background:#1e3d59;
+color:white;
+padding:10px 15px;
+border-radius:8px;
+font-size:13px;
+box-shadow:0 3px 8px rgba(0,0,0,0.5);
+}
+
+@media(max-width:600px){
+input,select{ width:100%; }
+header{ flex-direction:column; align-items:flex-start; }
+.clockBox{ text-align:left; margin-top:10px; }
 }
 </style>
 </head>
 
 <body>
 
+<div id="espStatus">Checking ESP...</div>
+
 <header>
+<div class="logoSection">
+<img src="logo.png">
 <div class="schoolName" onclick="editSchoolName()" id="schoolTitle">
 Your School Name
+</div>
 </div>
 
 <div class="clockBox">
 <div id="clock">00:00:00</div>
-<div id="date"></div>
-<div id="espStatus" class="status offline">ESP Offline</div>
+<div id="date">Loading...</div>
 </div>
 </header>
 
@@ -387,6 +513,14 @@ Your School Name
 <input type="number" id="minute" min="0" max="59" placeholder="Minute (0-59)">
 <input type="number" id="duration" placeholder="Duration (sec)">
 
+<label>
+<input type="checkbox" id="repeatNext"> Repeat Next Day
+</label>
+
+<label>
+<input type="checkbox" id="repeatWeek"> Repeat Full Week
+</label>
+
 <br>
 <button class="addBtn" onclick="addSchedule()">Add</button>
 <button class="exportBtn" onclick="exportJSON()">Export JSON</button>
@@ -405,107 +539,110 @@ Your School Name
 </div>
 </div>
 
+<footer>
+Developed by Vishwajeet Jadhav <br>
+Smart IoT Bell System <br>
+📧jadhavvishwajeet94@gmail.com
+</footer>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
 <script>
 
-/* ---------------- CLOCK (100% WORKING) ---------------- */
-document.addEventListener("DOMContentLoaded", function(){
-
-function updateClock(){
-    const now = new Date();
-
-    const h = String(now.getHours()).padStart(2,'0');
-    const m = String(now.getMinutes()).padStart(2,'0');
-    const s = String(now.getSeconds()).padStart(2,'0');
-
-    document.getElementById("clock").innerHTML = h + ":" + m + ":" + s;
-
-    const options = { weekday:'long', year:'numeric', month:'long', day:'numeric'};
-    document.getElementById("date").innerHTML =
-        now.toLocaleDateString(undefined, options);
-}
-
-updateClock();
-setInterval(updateClock,1000);
-
-});
-
-
-/* ---------------- FIREBASE CONFIG ---------------- */
+/* 🔥 REPLACE WITH YOUR FIREBASE CONFIG */
 const firebaseConfig = {
   apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
   databaseURL: "YOUR_DATABASE_URL",
-  projectId: "YOUR_PROJECT_ID"
+  projectId: "YOUR_PROJECT_ID",
 };
 
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
+/* ESP STATUS CHECK */
+database.ref("/SchoolBell/espStatus").on("value", (snapshot) => {
+  const lastUpdate = snapshot.val();
+  if (!lastUpdate) return;
 
-/* ESP STATUS */
-database.ref("espStatus").on("value", snapshot=>{
-if(snapshot.val()==="online"){
-document.getElementById("espStatus").innerHTML="ESP Online";
-document.getElementById("espStatus").className="status online";
-}else{
-document.getElementById("espStatus").innerHTML="ESP Offline";
-document.getElementById("espStatus").className="status offline";
-}
+  const now = Date.now();
+  const difference = now - lastUpdate;
+
+  if (difference < 15000) {
+    document.getElementById("espStatus").style.background="green";
+    document.getElementById("espStatus").innerHTML="🟢 ESP32 ONLINE";
+  } else {
+    document.getElementById("espStatus").style.background="red";
+    document.getElementById("espStatus").innerHTML="🔴 ESP32 OFFLINE";
+  }
 });
 
+/* CLOCK */
+function updateClock(){
+let now=new Date();
+let h=now.getHours().toString().padStart(2,'0');
+let m=now.getMinutes().toString().padStart(2,'0');
+let s=now.getSeconds().toString().padStart(2,'0');
+document.getElementById("clock").innerHTML=h+":"+m+":"+s;
+
+let options={weekday:'long', year:'numeric', month:'long', day:'numeric'};
+document.getElementById("date").innerHTML=now.toLocaleDateString(undefined,options);
+}
+setInterval(updateClock,1000);
+updateClock();
 
 /* LOGIN */
 function login(){
 let user=document.getElementById("username").value;
 let pass=document.getElementById("password").value;
-
-if(user==="admin" && pass==="1234"){
+if(user==="admin" && pass==="12345"){
 document.getElementById("loginBox").classList.add("hidden");
 document.getElementById("dashboard").classList.remove("hidden");
-loadFromFirebase();
-}else{
+}
+else{
 alert("Wrong login");
 }
 }
 
-function editSchoolName(){
-let newName=prompt("Enter School Name");
-if(newName){
-document.getElementById("schoolTitle").innerHTML=newName;
-}
-}
-
+/* SCHEDULE (Local Storage Only UI) */
 let schedules=[];
+const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
 function addSchedule(){
 let day=document.getElementById("day").value;
 let hour=document.getElementById("hour").value;
 let minute=document.getElementById("minute").value;
 let duration=document.getElementById("duration").value;
+let repeat=document.getElementById("repeatNext").checked;
+let repeatWeek=document.getElementById("repeatWeek").checked;
 
 if(hour===""||minute===""||duration===""){
 alert("Fill all fields");
 return;
 }
 
-hour=hour.padStart(2,'0');
-minute=minute.padStart(2,'0');
-
-let exists=schedules.some(item=>item.day===day && item.time===hour+":"+minute);
-if(exists){
-alert("Time already exists!");
-return;
+if(repeatWeek){
+days.forEach(d=>{
+schedules.push({day:d,time:formatTime(hour,minute),duration:duration});
+});
+}else{
+schedules.push({day:day,time:formatTime(hour,minute),duration:duration});
+if(repeat){
+let index=days.indexOf(day);
+if(index<6){
+schedules.push({day:days[index+1],time:formatTime(hour,minute),duration:duration});
+}
+}
 }
 
-schedules.push({day:day,time:hour+":"+minute,duration:duration});
-saveToFirebase();
 renderTable();
 }
 
 function renderTable(){
 let table=document.getElementById("table");
 table.innerHTML="<tr><th>Day</th><th>Time</th><th>Duration</th><th>Action</th></tr>";
-
 schedules.forEach((item,index)=>{
 let row=table.insertRow(-1);
 row.insertCell(0).innerHTML=item.day;
@@ -518,26 +655,15 @@ row.insertCell(3).innerHTML=
 
 function deleteRow(index){
 schedules.splice(index,1);
-saveToFirebase();
 renderTable();
 }
 
-function saveToFirebase(){
-database.ref("timetable").set(schedules);
-}
-
-function loadFromFirebase(){
-database.ref("timetable").on("value",snapshot=>{
-if(snapshot.exists()){
-schedules=snapshot.val();
-renderTable();
-}
-});
+function formatTime(h,m){
+return h.toString().padStart(2,'0')+":"+m.toString().padStart(2,'0');
 }
 
 function exportJSON(){
-let dataStr="data:text/json;charset=utf-8,"+
-encodeURIComponent(JSON.stringify(schedules,null,2));
+let dataStr="data:text/json;charset=utf-8,"+encodeURIComponent(JSON.stringify(schedules,null,2));
 let dl=document.createElement("a");
 dl.setAttribute("href",dataStr);
 dl.setAttribute("download","school_bell_schedule.json");
@@ -546,12 +672,5 @@ dl.click();
 
 </script>
 
-<footer>
-Developed by Vishwajeet Jadhav <br>
-Smart IoT Bell System <br>
-📧 jadhavvishwajeet94@gmail.com
-</footer>
-
 </body>
 </html>
-
