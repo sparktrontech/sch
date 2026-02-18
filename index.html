@@ -8,8 +8,7 @@
 body{
 font-family:Segoe UI;
 margin:0;
-background:
-linear-gradient(rgba(0,0,0,0.6),rgba(0,0,0,0.6)),
+background:linear-gradient(rgba(0,0,0,0.6),rgba(0,0,0,0.6)),
 url("background.jpg");
 background-size:cover;
 background-attachment:fixed;
@@ -64,6 +63,7 @@ padding:8px 15px;
 border-radius:20px;
 font-weight:bold;
 background:gray;
+z-index:1000;
 }
 
 /* CONTAINER */
@@ -148,8 +148,8 @@ Your School Name
 </div>
 
 <div class="clockBox">
-<div id="clock">00:00:00</div>
-<div id="date">Loading...</div>
+<div id="clock"></div>
+<div id="date"></div>
 </div>
 </header>
 
@@ -180,6 +180,8 @@ Your School Name
 <input type="number" id="minute" min="0" max="59" placeholder="Minute (0-59)">
 <input type="number" id="duration" placeholder="Duration (sec)">
 
+<br>
+
 <label>
 <input type="checkbox" id="repeatNext"> Repeat Next Day
 </label>
@@ -189,6 +191,7 @@ Your School Name
 </label>
 
 <br>
+
 <button class="addBtn" onclick="addSchedule()">Add</button>
 <button class="exportBtn" onclick="exportJSON()">Export JSON</button>
 
@@ -212,59 +215,50 @@ Smart IoT Bell System <br>
 📧jadhavvishwajeet94@gmail.com
 </footer>
 
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-
 <script>
 
-/* 🔥 REPLACE WITH YOUR FIREBASE CONFIG */
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  databaseURL: "YOUR_DATABASE_URL",
-  projectId: "YOUR_PROJECT_ID",
-};
-
-firebase.initializeApp(firebaseConfig);
-const database = firebase.database();
-
-/* ESP STATUS CHECK */
-database.ref("/SchoolBell/espStatus").on("value", (snapshot) => {
-  const lastUpdate = snapshot.val();
-  if (!lastUpdate) return;
-
-  const now = Date.now();
-  const difference = now - lastUpdate;
-
-  if (difference < 15000) {
-    document.getElementById("espStatus").style.background="green";
-    document.getElementById("espStatus").innerHTML="🟢 ESP32 ONLINE";
-  } else {
-    document.getElementById("espStatus").style.background="red";
-    document.getElementById("espStatus").innerHTML="🔴 ESP32 OFFLINE";
-  }
-});
-
-/* CLOCK */
+/* ================= CLOCK ================= */
 function updateClock(){
-let now=new Date();
-let h=now.getHours().toString().padStart(2,'0');
-let m=now.getMinutes().toString().padStart(2,'0');
-let s=now.getSeconds().toString().padStart(2,'0');
-document.getElementById("clock").innerHTML=h+":"+m+":"+s;
+const now = new Date();
 
-let options={weekday:'long', year:'numeric', month:'long', day:'numeric'};
-document.getElementById("date").innerHTML=now.toLocaleDateString(undefined,options);
+const h = String(now.getHours()).padStart(2,'0');
+const m = String(now.getMinutes()).padStart(2,'0');
+const s = String(now.getSeconds()).padStart(2,'0');
+
+document.getElementById("clock").innerText = h + ":" + m + ":" + s;
+
+document.getElementById("date").innerText =
+now.toLocaleDateString('en-IN', {
+weekday:'long',
+year:'numeric',
+month:'long',
+day:'numeric'
+});
 }
 setInterval(updateClock,1000);
 updateClock();
 
-/* LOGIN */
+/* ================= SCHOOL NAME ================= */
+function editSchoolName(){
+let name = prompt("Enter School Name:");
+if(name){
+document.getElementById("schoolTitle").innerText=name;
+localStorage.setItem("schoolName",name);
+}
+}
+window.onload=function(){
+let saved=localStorage.getItem("schoolName");
+if(saved){
+document.getElementById("schoolTitle").innerText=saved;
+}
+}
+
+/* ================= LOGIN ================= */
 function login(){
-let user=document.getElementById("username").value;
-let pass=document.getElementById("password").value;
-if(user==="admin" && pass==="12345"){
+if(
+document.getElementById("username").value==="admin" &&
+document.getElementById("password").value==="12345"
+){
 document.getElementById("loginBox").classList.add("hidden");
 document.getElementById("dashboard").classList.remove("hidden");
 }
@@ -273,16 +267,17 @@ alert("Wrong login");
 }
 }
 
-/* SCHEDULE (Local Storage Only UI) */
+/* ================= SCHEDULE ================= */
 let schedules=[];
 const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
 function addSchedule(){
+
 let day=document.getElementById("day").value;
 let hour=document.getElementById("hour").value;
 let minute=document.getElementById("minute").value;
 let duration=document.getElementById("duration").value;
-let repeat=document.getElementById("repeatNext").checked;
+let repeatNext=document.getElementById("repeatNext").checked;
 let repeatWeek=document.getElementById("repeatWeek").checked;
 
 if(hour===""||minute===""||duration===""){
@@ -294,9 +289,11 @@ if(repeatWeek){
 days.forEach(d=>{
 schedules.push({day:d,time:formatTime(hour,minute),duration:duration});
 });
-}else{
+}
+else{
 schedules.push({day:day,time:formatTime(hour,minute),duration:duration});
-if(repeat){
+
+if(repeatNext){
 let index=days.indexOf(day);
 if(index<6){
 schedules.push({day:days[index+1],time:formatTime(hour,minute),duration:duration});
@@ -310,11 +307,12 @@ renderTable();
 function renderTable(){
 let table=document.getElementById("table");
 table.innerHTML="<tr><th>Day</th><th>Time</th><th>Duration</th><th>Action</th></tr>";
+
 schedules.forEach((item,index)=>{
 let row=table.insertRow(-1);
-row.insertCell(0).innerHTML=item.day;
-row.insertCell(1).innerHTML=item.time;
-row.insertCell(2).innerHTML=item.duration+" sec";
+row.insertCell(0).innerText=item.day;
+row.insertCell(1).innerText=item.time;
+row.insertCell(2).innerText=item.duration+" sec";
 row.insertCell(3).innerHTML=
 "<button class='deleteBtn' onclick='deleteRow("+index+")'>Delete</button>";
 });
@@ -326,16 +324,25 @@ renderTable();
 }
 
 function formatTime(h,m){
-return h.toString().padStart(2,'0')+":"+m.toString().padStart(2,'0');
+return String(h).padStart(2,'0')+":"+String(m).padStart(2,'0');
 }
 
 function exportJSON(){
-let dataStr="data:text/json;charset=utf-8,"+encodeURIComponent(JSON.stringify(schedules,null,2));
+let dataStr="data:text/json;charset=utf-8,"+
+encodeURIComponent(JSON.stringify(schedules,null,2));
 let dl=document.createElement("a");
-dl.setAttribute("href",dataStr);
-dl.setAttribute("download","school_bell_schedule.json");
+dl.href=dataStr;
+dl.download="school_bell_schedule.json";
 dl.click();
 }
+
+/* ================= ESP STATUS SIMULATION ================= */
+/* This will turn green automatically if you later connect Firebase */
+
+setInterval(()=>{
+document.getElementById("espStatus").style.background="red";
+document.getElementById("espStatus").innerText="🔴 ESP32 OFFLINE";
+},5000);
 
 </script>
 
