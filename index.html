@@ -12,6 +12,7 @@ body{
 font-family:Segoe UI;
 background:#f4f6f9;
 margin:0;
+padding-bottom:100px;
 }
 
 header{
@@ -96,6 +97,18 @@ text-align:center;
 }
 
 .hidden{ display:none; }
+
+/* Footer */
+footer{
+background:#1e3d59;
+color:white;
+text-align:center;
+padding:15px;
+font-size:14px;
+position:fixed;
+bottom:0;
+width:100%;
+}
 </style>
 </head>
 
@@ -164,15 +177,12 @@ Your School Name
 
 <script>
 
-/* 🔥 FIREBASE CONFIG */
+/* FIREBASE CONFIG */
 const firebaseConfig = {
-  apiKey: "AIzaSyCkl4p4SnS84EzLIyIjTk5euJH9lx9FVSI",
-  authDomain: "sparktrontechbell.firebaseapp.com",
-  databaseURL: "https://sparktrontechbell-default-rtdb.firebaseio.com",
-  projectId: "sparktrontechbell",
-  storageBucket: "sparktrontechbell.firebasestorage.app",
-  messagingSenderId: "785911164477",
-  appId: "1:785911164477:web:d94a5d8f9667eaf5878454"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_AUTH_DOMAIN",
+  databaseURL: "YOUR_DATABASE_URL",
+  projectId: "YOUR_PROJECT_ID",
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -191,7 +201,7 @@ document.getElementById("date").innerHTML=now.toLocaleDateString(undefined,optio
 }
 setInterval(updateClock,1000);
 
-/* ESP STATUS LISTENER */
+/* ESP STATUS */
 database.ref("espStatus").on("value", snapshot=>{
 if(snapshot.val()==="online"){
 document.getElementById("espStatus").innerHTML="ESP Online";
@@ -228,18 +238,29 @@ let schedules=[];
 
 function addSchedule(){
 let day=document.getElementById("day").value;
-let hour=document.getElementById("hour").value.padStart(2,'0');
-let minute=document.getElementById("minute").value.padStart(2,'0');
+let hour=document.getElementById("hour").value;
+let minute=document.getElementById("minute").value;
 let duration=document.getElementById("duration").value;
 let repeat=document.getElementById("repeatNext").checked;
 
-if(hour===""||minute===""||duration===""){
+if(hour==="" || minute==="" || duration===""){
 alert("Fill all fields");
 return;
 }
 
-let entry={day:day,time:hour+":"+minute,duration:duration};
-schedules.push(entry);
+hour=hour.toString().padStart(2,'0');
+minute=minute.toString().padStart(2,'0');
+
+let alreadyExists = schedules.some(item => 
+item.day === day && item.time === hour+":"+minute
+);
+
+if(alreadyExists){
+alert("Time already exists!");
+return;
+}
+
+schedules.push({day:day,time:hour+":"+minute,duration:duration});
 
 if(repeat){
 let days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
@@ -249,8 +270,20 @@ schedules.push({day:days[index+1],time:hour+":"+minute,duration:duration});
 }
 }
 
+schedules.sort((a,b)=>{
+if(a.day===b.day){
+return a.time.localeCompare(b.time);
+}
+return a.day.localeCompare(b.day);
+});
+
 saveToFirebase();
 renderTable();
+
+document.getElementById("hour").value="";
+document.getElementById("minute").value="";
+document.getElementById("duration").value="";
+document.getElementById("repeatNext").checked=false;
 }
 
 function renderTable(){
@@ -295,6 +328,12 @@ dl.click();
 }
 
 </script>
+
+<footer>
+Developed by Vishwajeet Jadhav <br>
+Smart IoT Bell System <br>
+📧 jadhavvishwajeet94@gmail.com
+</footer>
 
 </body>
 </html>
