@@ -8,7 +8,8 @@
 body{
 font-family:Segoe UI;
 margin:0;
-background:linear-gradient(rgba(0,0,0,0.6),rgba(0,0,0,0.6)),
+background:
+linear-gradient(rgba(0,0,0,0.6),rgba(0,0,0,0.6)),
 url("background.jpg");
 background-size:cover;
 background-attachment:fixed;
@@ -57,13 +58,13 @@ font-size:14px;
 /* ESP STATUS */
 #espStatus{
 position:fixed;
-top:30px;
-right:800px;
+top:10px;
+right:10px;
 padding:8px 15px;
 border-radius:20px;
 font-weight:bold;
 background:gray;
-z-index:1000;
+z-index:999;
 }
 
 /* CONTAINER */
@@ -142,7 +143,7 @@ header{ flex-direction:column; align-items:flex-start; }
 <header>
 <div class="logoSection">
 <img src="logo.png">
-<div class="schoolName" onclick="editSchoolName()" id="schoolTitle">
+<div class="schoolName" id="schoolTitle">
 Your School Name
 </div>
 </div>
@@ -191,20 +192,7 @@ Your School Name
 </label>
 
 <br>
-
-<button class="addBtn" onclick="addSchedule()">Add</button>
-<button class="exportBtn" onclick="exportJSON()">Export JSON</button>
-
-<h3>Weekly Time Table</h3>
-
-<table id="table">
-<tr>
-<th>Day</th>
-<th>Time</th>
-<th>Duration</th>
-<th>Action</th>
-</tr>
-</table>
+<button class="addBtn" onclick="addSchedule()">Upload to ESP</button>
 
 </div>
 </div>
@@ -215,12 +203,29 @@ Smart IoT Bell System <br>
 📧jadhavvishwajeet94@gmail.com
 </footer>
 
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
 <script>
 
-/* ================= CLOCK ================= */
+/* 🔥 YOUR FIREBASE CONFIG */
+const firebaseConfig = {
+  apiKey: "AIzaSyCkl4p4SnS84EzLIyIjTk5euJH9lx9FVSI",
+  authDomain: "sparktrontechbell.firebaseapp.com",
+  databaseURL: "https://sparktrontechbell-default-rtdb.firebaseio.com",
+  projectId: "sparktrontechbell",
+  storageBucket: "sparktrontechbell.firebasestorage.app",
+  messagingSenderId: "785911164477",
+  appId: "1:785911164477:web:d94a5d8f9667eaf5878454"
+};
+
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
+/* CLOCK */
 function updateClock(){
 const now = new Date();
-
 const h = String(now.getHours()).padStart(2,'0');
 const m = String(now.getMinutes()).padStart(2,'0');
 const s = String(now.getSeconds()).padStart(2,'0');
@@ -238,27 +243,12 @@ day:'numeric'
 setInterval(updateClock,1000);
 updateClock();
 
-/* ================= SCHOOL NAME ================= */
-function editSchoolName(){
-let name = prompt("Enter School Name:");
-if(name){
-document.getElementById("schoolTitle").innerText=name;
-localStorage.setItem("schoolName",name);
-}
-}
-window.onload=function(){
-let saved=localStorage.getItem("schoolName");
-if(saved){
-document.getElementById("schoolTitle").innerText=saved;
-}
-}
-
-/* ================= LOGIN ================= */
+/* LOGIN */
 function login(){
-if(
-document.getElementById("username").value==="admin" &&
-document.getElementById("password").value==="12345"
-){
+let user=document.getElementById("username").value;
+let pass=document.getElementById("password").value;
+
+if(user==="admin" && pass==="12345"){
 document.getElementById("loginBox").classList.add("hidden");
 document.getElementById("dashboard").classList.remove("hidden");
 }
@@ -267,8 +257,24 @@ alert("Wrong login");
 }
 }
 
-/* ================= SCHEDULE ================= */
-let schedules=[];
+/* ESP ONLINE CHECK */
+database.ref("/SchoolBell/espStatus").on("value", (snapshot) => {
+  const lastUpdate = snapshot.val();
+  if (!lastUpdate) return;
+
+  const now = Date.now();
+  const diff = now - lastUpdate;
+
+  if (diff < 15000) {
+    document.getElementById("espStatus").style.background="green";
+    document.getElementById("espStatus").innerText="🟢 ESP32 ONLINE";
+  } else {
+    document.getElementById("espStatus").style.background="red";
+    document.getElementById("espStatus").innerText="🔴 ESP32 OFFLINE";
+  }
+});
+
+/* SCHEDULE UPLOAD */
 const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
 function addSchedule(){
@@ -287,66 +293,40 @@ return;
 
 if(repeatWeek){
 days.forEach(d=>{
-schedules.push({day:d,time:formatTime(hour,minute),duration:duration});
+database.ref("/SchoolBell/schedule").push({
+day:d,
+hour:parseInt(hour),
+minute:parseInt(minute),
+duration:parseInt(duration)
+});
 });
 }
 else{
-schedules.push({day:day,time:formatTime(hour,minute),duration:duration});
+database.ref("/SchoolBell/schedule").push({
+day:day,
+hour:parseInt(hour),
+minute:parseInt(minute),
+duration:parseInt(duration)
+});
 
 if(repeatNext){
 let index=days.indexOf(day);
 if(index<6){
-schedules.push({day:days[index+1],time:formatTime(hour,minute),duration:duration});
-}
-}
-}
-
-renderTable();
-}
-
-function renderTable(){
-let table=document.getElementById("table");
-table.innerHTML="<tr><th>Day</th><th>Time</th><th>Duration</th><th>Action</th></tr>";
-
-schedules.forEach((item,index)=>{
-let row=table.insertRow(-1);
-row.insertCell(0).innerText=item.day;
-row.insertCell(1).innerText=item.time;
-row.insertCell(2).innerText=item.duration+" sec";
-row.insertCell(3).innerHTML=
-"<button class='deleteBtn' onclick='deleteRow("+index+")'>Delete</button>";
+database.ref("/SchoolBell/schedule").push({
+day:days[index+1],
+hour:parseInt(hour),
+minute:parseInt(minute),
+duration:parseInt(duration)
 });
 }
-
-function deleteRow(index){
-schedules.splice(index,1);
-renderTable();
+}
 }
 
-function formatTime(h,m){
-return String(h).padStart(2,'0')+":"+String(m).padStart(2,'0');
+alert("Schedule Uploaded Successfully ✅");
 }
-
-function exportJSON(){
-let dataStr="data:text/json;charset=utf-8,"+
-encodeURIComponent(JSON.stringify(schedules,null,2));
-let dl=document.createElement("a");
-dl.href=dataStr;
-dl.download="school_bell_schedule.json";
-dl.click();
-}
-
-/* ================= ESP STATUS SIMULATION ================= */
-/* This will turn green automatically if you later connect Firebase */
-
-setInterval(()=>{
-document.getElementById("espStatus").style.background="red";
-document.getElementById("espStatus").innerText="🔴 ESP32 OFFLINE";
-},5000);
 
 </script>
 
 </body>
 </html>
-
 
