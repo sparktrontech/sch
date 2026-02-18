@@ -64,7 +64,6 @@ padding:8px 15px;
 border-radius:20px;
 font-weight:bold;
 background:gray;
-z-index:1000;
 }
 
 /* CONTAINER */
@@ -116,7 +115,6 @@ text-align:center;
 
 .hidden{ display:none; }
 
-/* FOOTER FIXED */
 footer{
 position:fixed;
 bottom:10px;
@@ -127,7 +125,6 @@ padding:10px 15px;
 border-radius:8px;
 font-size:13px;
 box-shadow:0 3px 8px rgba(0,0,0,0.5);
-z-index:1000;
 }
 
 @media(max-width:600px){
@@ -145,13 +142,13 @@ header{ flex-direction:column; align-items:flex-start; }
 <header>
 <div class="logoSection">
 <img src="logo.png">
-<div class="schoolName" id="schoolTitle">
+<div class="schoolName" onclick="editSchoolName()" id="schoolTitle">
 Your School Name
 </div>
 </div>
 
 <div class="clockBox">
-<div id="clock">--:--:--</div>
+<div id="clock">00:00:00</div>
 <div id="date">Loading...</div>
 </div>
 </header>
@@ -183,6 +180,14 @@ Your School Name
 <input type="number" id="minute" min="0" max="59" placeholder="Minute (0-59)">
 <input type="number" id="duration" placeholder="Duration (sec)">
 
+<label>
+<input type="checkbox" id="repeatNext"> Repeat Next Day
+</label>
+
+<label>
+<input type="checkbox" id="repeatWeek"> Repeat Full Week
+</label>
+
 <br>
 <button class="addBtn" onclick="addSchedule()">Add</button>
 <button class="exportBtn" onclick="exportJSON()">Export JSON</button>
@@ -203,7 +208,7 @@ Your School Name
 
 <footer>
 Developed by Vishwajeet Jadhav <br>
-Smart Bell System <br>
+Smart IoT Bell System <br>
 📧jadhavvishwajeet94@gmail.com
 </footer>
 
@@ -213,19 +218,18 @@ Smart Bell System <br>
 
 <script>
 
-/* ---------------- FIREBASE CONFIG ---------------- */
-/* 🔥 PUT YOUR REAL FIREBASE DETAILS HERE */
+/* 🔥 REPLACE WITH YOUR FIREBASE CONFIG */
 const firebaseConfig = {
-  apiKey: "AIzaSyCkl4p4SnS84EzLIyIjTk5euJH9lx9FVSI",
-  authDomain: "sparktrontechbell.firebaseapp.com",
-  databaseURL: "https://sparktrontechbell-default-rtdb.firebaseio.com",
-  projectId: "sparktsrontechbell",
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "YOUR_DATABASE_URL",
+  projectId: "YOUR_PROJECT_ID",
 };
 
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
-/* ---------------- ESP STATUS ---------------- */
+/* ESP STATUS CHECK */
 database.ref("/SchoolBell/espStatus").on("value", (snapshot) => {
   const lastUpdate = snapshot.val();
   if (!lastUpdate) return;
@@ -242,29 +246,25 @@ database.ref("/SchoolBell/espStatus").on("value", (snapshot) => {
   }
 });
 
-/* ---------------- DIGITAL CLOCK FIXED ---------------- */
+/* CLOCK */
 function updateClock(){
-  const now = new Date();
+let now=new Date();
+let h=now.getHours().toString().padStart(2,'0');
+let m=now.getMinutes().toString().padStart(2,'0');
+let s=now.getSeconds().toString().padStart(2,'0');
+document.getElementById("clock").innerHTML=h+":"+m+":"+s;
 
-  const h = String(now.getHours()).padStart(2,'0');
-  const m = String(now.getMinutes()).padStart(2,'0');
-  const s = String(now.getSeconds()).padStart(2,'0');
-
-  document.getElementById("clock").textContent = `${h}:${m}:${s}`;
-
-  const options = { weekday:'long', year:'numeric', month:'long', day:'numeric' };
-  document.getElementById("date").textContent =
-      now.toLocaleDateString('en-IN', options);
+let options={weekday:'long', year:'numeric', month:'long', day:'numeric'};
+document.getElementById("date").innerHTML=now.toLocaleDateString(undefined,options);
 }
-
+setInterval(updateClock,1000);
 updateClock();
-setInterval(updateClock, 1000);
 
-/* ---------------- LOGIN ---------------- */
+/* LOGIN */
 function login(){
 let user=document.getElementById("username").value;
 let pass=document.getElementById("password").value;
-if(user==="Shrikant Jadhav" && pass==="7588586144"){
+if(user==="admin" && pass==="12345"){
 document.getElementById("loginBox").classList.add("hidden");
 document.getElementById("dashboard").classList.remove("hidden");
 }
@@ -273,25 +273,36 @@ alert("Wrong login");
 }
 }
 
-/* ---------------- SCHEDULE UI ---------------- */
+/* SCHEDULE (Local Storage Only UI) */
 let schedules=[];
+const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
 function addSchedule(){
 let day=document.getElementById("day").value;
 let hour=document.getElementById("hour").value;
 let minute=document.getElementById("minute").value;
 let duration=document.getElementById("duration").value;
+let repeat=document.getElementById("repeatNext").checked;
+let repeatWeek=document.getElementById("repeatWeek").checked;
 
 if(hour===""||minute===""||duration===""){
 alert("Fill all fields");
 return;
 }
 
-schedules.push({
-day:day,
-time:formatTime(hour,minute),
-duration:duration
+if(repeatWeek){
+days.forEach(d=>{
+schedules.push({day:d,time:formatTime(hour,minute),duration:duration});
 });
+}else{
+schedules.push({day:day,time:formatTime(hour,minute),duration:duration});
+if(repeat){
+let index=days.indexOf(day);
+if(index<6){
+schedules.push({day:days[index+1],time:formatTime(hour,minute),duration:duration});
+}
+}
+}
 
 renderTable();
 }
@@ -315,7 +326,7 @@ renderTable();
 }
 
 function formatTime(h,m){
-return String(h).padStart(2,'0')+":"+String(m).padStart(2,'0');
+return h.toString().padStart(2,'0')+":"+m.toString().padStart(2,'0');
 }
 
 function exportJSON(){
