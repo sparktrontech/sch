@@ -18,7 +18,7 @@ color:white;
 
 /* HEADER */
 header{
-background:rgba(0,0,0,0.7);
+background:rgba(0,0,0,0.8);
 padding:15px 20px;
 display:flex;
 justify-content:space-between;
@@ -39,11 +39,12 @@ margin-right:15px;
 .schoolName{
 font-size:22px;
 font-weight:bold;
-cursor:pointer;
 }
 
-.clockBox{
-text-align:right;
+.statusClockBox{
+display:flex;
+flex-direction:column;
+align-items:flex-end;
 }
 
 #clock{
@@ -55,16 +56,13 @@ font-weight:bold;
 font-size:14px;
 }
 
-/* ESP STATUS */
 #espStatus{
-position:fixed;
-top:10px;
-right:10px;
-padding:8px 15px;
+margin-top:5px;
+padding:6px 12px;
 border-radius:20px;
+font-size:13px;
 font-weight:bold;
 background:gray;
-z-index:999;
 }
 
 /* CONTAINER */
@@ -100,7 +98,6 @@ margin:3px;
 
 .addBtn{ background:#27ae60; color:white; }
 .deleteBtn{ background:#e74c3c; color:white; }
-.exportBtn{ background:#2980b9; color:white; }
 
 table{
 width:100%;
@@ -131,26 +128,25 @@ box-shadow:0 3px 8px rgba(0,0,0,0.5);
 @media(max-width:600px){
 input,select{ width:100%; }
 header{ flex-direction:column; align-items:flex-start; }
-.clockBox{ text-align:left; margin-top:10px; }
+.statusClockBox{ align-items:flex-start; margin-top:10px; }
 }
 </style>
 </head>
 
 <body>
 
-<div id="espStatus">Checking ESP...</div>
-
 <header>
 <div class="logoSection">
 <img src="logo.png">
-<div class="schoolName" id="schoolTitle">
+<div class="schoolName">
 Your School Name
 </div>
 </div>
 
-<div class="clockBox">
+<div class="statusClockBox">
 <div id="clock"></div>
 <div id="date"></div>
+<div id="espStatus">Checking ESP...</div>
 </div>
 </header>
 
@@ -177,22 +173,28 @@ Your School Name
 <option>Sunday</option>
 </select>
 
-<input type="number" id="hour" min="0" max="23" placeholder="Hour (0-23)">
-<input type="number" id="minute" min="0" max="59" placeholder="Minute (0-59)">
+<input type="number" id="hour" min="0" max="23" placeholder="Hour">
+<input type="number" id="minute" min="0" max="59" placeholder="Minute">
 <input type="number" id="duration" placeholder="Duration (sec)">
 
 <br>
 
-<label>
-<input type="checkbox" id="repeatNext"> Repeat Next Day
-</label>
-
-<label>
-<input type="checkbox" id="repeatWeek"> Repeat Full Week
-</label>
+<label><input type="checkbox" id="repeatNext"> Repeat Next Day</label>
+<label><input type="checkbox" id="repeatWeek"> Repeat Full Week</label>
 
 <br>
-<button class="addBtn" onclick="addSchedule()">Upload to ESP</button>
+<button class="addBtn" onclick="addSchedule()">Upload Schedule</button>
+
+<h3>Weekly Time Table</h3>
+
+<table id="table">
+<tr>
+<th>Day</th>
+<th>Time</th>
+<th>Duration</th>
+<th>Action</th>
+</tr>
+</table>
 
 </div>
 </div>
@@ -215,9 +217,6 @@ const firebaseConfig = {
   authDomain: "sparktrontechbell.firebaseapp.com",
   databaseURL: "https://sparktrontechbell-default-rtdb.firebaseio.com",
   projectId: "sparktrontechbell",
-  storageBucket: "sparktrontechbell.firebasestorage.app",
-  messagingSenderId: "785911164477",
-  appId: "1:785911164477:web:d94a5d8f9667eaf5878454"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -226,14 +225,13 @@ const database = firebase.database();
 /* CLOCK */
 function updateClock(){
 const now = new Date();
-const h = String(now.getHours()).padStart(2,'0');
-const m = String(now.getMinutes()).padStart(2,'0');
-const s = String(now.getSeconds()).padStart(2,'0');
-
-document.getElementById("clock").innerText = h + ":" + m + ":" + s;
+document.getElementById("clock").innerText =
+String(now.getHours()).padStart(2,'0') + ":" +
+String(now.getMinutes()).padStart(2,'0') + ":" +
+String(now.getSeconds()).padStart(2,'0');
 
 document.getElementById("date").innerText =
-now.toLocaleDateString('en-IN', {
+now.toLocaleDateString('en-IN',{
 weekday:'long',
 year:'numeric',
 month:'long',
@@ -245,36 +243,49 @@ updateClock();
 
 /* LOGIN */
 function login(){
-let user=document.getElementById("username").value;
-let pass=document.getElementById("password").value;
-
-if(user==="Shrikantjadhav" && pass==="mhm7588"){
-document.getElementById("loginBox").classList.add("hidden");
-document.getElementById("dashboard").classList.remove("hidden");
-}
-else{
+if(username.value==="admin" && password.value==="12345"){
+loginBox.classList.add("hidden");
+dashboard.classList.remove("hidden");
+}else{
 alert("Wrong login");
 }
 }
 
-/* ESP ONLINE CHECK */
-database.ref("/SchoolBell/espStatus").on("value", (snapshot) => {
-  const lastUpdate = snapshot.val();
-  if (!lastUpdate) return;
-
-  const now = Date.now();
-  const diff = now - lastUpdate;
-
-  if (diff < 15000) {
-    document.getElementById("espStatus").style.background="green";
-    document.getElementById("espStatus").innerText="🟢 ESP32 ONLINE";
-  } else {
-    document.getElementById("espStatus").style.background="red";
-    document.getElementById("espStatus").innerText="🔴 ESP32 OFFLINE";
-  }
+/* ESP STATUS */
+database.ref("/SchoolBell/espStatus").on("value",(snapshot)=>{
+const lastUpdate=snapshot.val();
+if(!lastUpdate) return;
+const diff=Date.now()-lastUpdate;
+if(diff<15000){
+espStatus.style.background="green";
+espStatus.innerText="🟢 ESP32 ONLINE";
+}else{
+espStatus.style.background="red";
+espStatus.innerText="🔴 ESP32 OFFLINE";
+}
 });
 
-/* SCHEDULE UPLOAD */
+/* LOAD TABLE */
+database.ref("/SchoolBell/schedule").on("value",(snapshot)=>{
+let table=document.getElementById("table");
+table.innerHTML="<tr><th>Day</th><th>Time</th><th>Duration</th><th>Action</th></tr>";
+
+snapshot.forEach((child)=>{
+let data=child.val();
+let key=child.key;
+
+let row=table.insertRow(-1);
+row.insertCell(0).innerHTML=data.day;
+row.insertCell(1).innerHTML=
+String(data.hour).padStart(2,'0')+":"+
+String(data.minute).padStart(2,'0');
+row.insertCell(2).innerHTML=data.duration+" sec";
+row.insertCell(3).innerHTML=
+"<button class='deleteBtn' onclick=\"deleteSchedule('"+key+"')\">Delete</button>";
+});
+});
+
+/* ADD SCHEDULE */
 const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
 function addSchedule(){
@@ -300,8 +311,7 @@ minute:parseInt(minute),
 duration:parseInt(duration)
 });
 });
-}
-else{
+}else{
 database.ref("/SchoolBell/schedule").push({
 day:day,
 hour:parseInt(hour),
@@ -323,6 +333,11 @@ duration:parseInt(duration)
 }
 
 alert("Schedule Uploaded Successfully ✅");
+}
+
+/* DELETE */
+function deleteSchedule(key){
+database.ref("/SchoolBell/schedule/"+key).remove();
 }
 
 </script>
