@@ -265,25 +265,68 @@ espStatus.innerText="🔴 ESP32 OFFLINE";
 }
 });
 
-/* LOAD TABLE */
+/* LOAD TABLE DAY-WISE & TIME SORTED */
 database.ref("/SchoolBell/schedule").on("value",(snapshot)=>{
+
 let table=document.getElementById("table");
-table.innerHTML="<tr><th>Day</th><th>Time</th><th>Duration</th><th>Action</th></tr>";
+table.innerHTML="<tr><th>Day</th><th>Time (24H)</th><th>Duration</th><th>Action</th></tr>";
+
+let dataArray=[];
 
 snapshot.forEach((child)=>{
 let data=child.val();
-let key=child.key;
+data.key=child.key;
+dataArray.push(data);
+});
+
+/* DAY ORDER */
+const dayOrder={
+"Monday":1,
+"Tuesday":2,
+"Wednesday":3,
+"Thursday":4,
+"Friday":5,
+"Saturday":6,
+"Sunday":7
+};
+
+/* SORTING */
+dataArray.sort((a,b)=>{
+
+if(dayOrder[a.day] !== dayOrder[b.day]){
+return dayOrder[a.day] - dayOrder[b.day];
+}
+
+/* If same day → sort by hour */
+if(a.hour !== b.hour){
+return a.hour - b.hour;
+}
+
+/* If same hour → sort by minute */
+return a.minute - b.minute;
+
+});
+
+/* DISPLAY SORTED DATA */
+dataArray.forEach((data)=>{
 
 let row=table.insertRow(-1);
+
 row.insertCell(0).innerHTML=data.day;
+
 row.insertCell(1).innerHTML=
 String(data.hour).padStart(2,'0')+":"+
 String(data.minute).padStart(2,'0');
+
 row.insertCell(2).innerHTML=data.duration+" sec";
+
 row.insertCell(3).innerHTML=
-"<button class='deleteBtn' onclick=\"deleteSchedule('"+key+"')\">Delete</button>";
+"<button class='deleteBtn' onclick=\"deleteSchedule('"+data.key+"')\">Delete</button>";
+
 });
+
 });
+
 
 /* ADD SCHEDULE */
 const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
@@ -344,6 +387,7 @@ database.ref("/SchoolBell/schedule/"+key).remove();
 
 </body>
 </html>
+
 
 
 
